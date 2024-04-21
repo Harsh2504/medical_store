@@ -548,35 +548,48 @@ class MedicalStoreManagementSystemGUI {
         StringBuilder expiredProducts = new StringBuilder("Expired Products:\n");
         StringBuilder lowStockProducts = new StringBuilder("Products with Low Stock:\n");
     
-        // Check for expired products
-        for (Product product : products) {
-            if (isExpired(product.getExpiryDate())) {
-                expiredProducts.append(product.getName()).append("\n");
+        try{
+            // Check for expired products
+            String expiredProductsQuery = "SELECT name FROM products WHERE expiryDate < CURRENT_DATE()";
+            try (PreparedStatement expiredProductsStatement = conn.prepareStatement(expiredProductsQuery);
+                 ResultSet expiredProductsResultSet = expiredProductsStatement.executeQuery()) {
+                while (expiredProductsResultSet.next()) {
+                    expiredProducts.append(expiredProductsResultSet.getString("name")).append("\n");
+                }
             }
-        }
     
-        // Check for products with low stock
-        for (Product product : products) {
-            if (product.getQuantity() <= LOW_STOCK_THRESHOLD) {
-                lowStockProducts.append(product.getName()).append(": ").append(product.getQuantity()).append("\n");
+            // Check for products with low stock
+            String lowStockProductsQuery = "SELECT name, quantity FROM products WHERE quantity <= ?";
+            try (PreparedStatement lowStockProductsStatement = conn.prepareStatement(lowStockProductsQuery)) {
+                lowStockProductsStatement.setInt(1, LOW_STOCK_THRESHOLD);
+                try (ResultSet lowStockProductsResultSet = lowStockProductsStatement.executeQuery()) {
+                    while (lowStockProductsResultSet.next()) {
+                        lowStockProducts.append(lowStockProductsResultSet.getString("name"))
+                                .append(": ").append(lowStockProductsResultSet.getInt("quantity")).append("\n");
+                    }
+                }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(mainFrame, "Error retrieving product information from the database.");
+            return;
         }
     
         // Display the results
         String message = "";
-        if (expiredProducts.length() > 20) { // Check if there are expired products
+        if (expiredProducts.length() > 20) {
             message += expiredProducts.toString() + "\n";
         }
-        if (lowStockProducts.length() > 25) { // Check if there are products with low stock
+        if (lowStockProducts.length() > 25) {
             message += lowStockProducts.toString();
         }
-        if (message.isEmpty()) { // If no issues found
+        if (message.isEmpty()) {
             message = "No expired products or products with low stock found.";
         }
         JOptionPane.showMessageDialog(mainFrame, message);
-        ((JDialog) SwingUtilities.getWindowAncestor(mainFrame)).setLocationRelativeTo(null);
-        
+        // ((JDialog) SwingUtilities.getWindowAncestor(mainFrame)).setLocationRelativeTo(null);
     }
+    
     
     private boolean isExpired(String expiryDate) {
         // Implement logic to check if a product is expired based on its expiry date
