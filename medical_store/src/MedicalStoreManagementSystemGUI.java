@@ -270,7 +270,6 @@ class MedicalStoreManagementSystemGUI {
         inputPanel.add(quantityField);
     
         JButton sellButton = new JButton("Sell");
-    
         sellButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 int customerId;
@@ -280,17 +279,22 @@ class MedicalStoreManagementSystemGUI {
                     JOptionPane.showMessageDialog(mainFrame, "Invalid customer ID!");
                     return;
                 }
-                
+        
                 String[] productIdsString = productIdField.getText().split(",");
                 String[] quantitiesString = quantityField.getText().split(",");
-                
+        
                 if (productIdsString.length != quantitiesString.length) {
                     JOptionPane.showMessageDialog(mainFrame, "Please provide quantity for each product.");
                     return;
                 }
-                
+        
                 StringBuilder bill = new StringBuilder();
                 double totalBillAmount = 0;
+        
+                bill.append("<html><body>");
+                bill.append("<h2 style=\"text-align: center;\">Bill for Customer: ").append(customerId).append("</h2><br>");
+        
+                bill.append("<div style=\"border-top: 1px dashed black; border-bottom: 1px dashed black; padding: 10px;\">"); // Dashed line styling
         
                 for (int i = 0; i < productIdsString.length; i++) {
                     try {
@@ -298,10 +302,14 @@ class MedicalStoreManagementSystemGUI {
                         int quantityToSell = Integer.parseInt(quantitiesString[i].trim());
                         SaleItem saleItem = sellProduct(customerId, productId, quantityToSell);
                         if (saleItem != null) {
-                            bill.append("Product Sold: ").append(saleItem.product.getName()).append("\n");
-                            bill.append("Quantity: ").append(saleItem.quantity).append("\n");
-                            bill.append("Total Price: ").append(saleItem.totalPrice).append("\n\n");
-                            totalBillAmount += saleItem.totalPrice;
+                            String productName = getProductName(productId); // Fetch product name from database
+                            double totalPrice = saleItem.totalPrice;
+                            totalBillAmount += totalPrice;
+        
+                            // Append product details to the bill
+                            bill.append("<b>Product Sold:</b> ").append(productName).append("<br>");
+                            bill.append("<b>Quantity:</b> ").append(quantityToSell).append("<br>");
+                            bill.append("<b>Total Price:</b> ₹").append(totalPrice).append("<br><br>");
                         }
                     } catch (NumberFormatException ex) {
                         JOptionPane.showMessageDialog(mainFrame, "Invalid product ID or quantity!");
@@ -309,15 +317,24 @@ class MedicalStoreManagementSystemGUI {
                     }
                 }
         
-                if (bill.length() > 0) {
-                    bill.insert(0, "Bill for Customer: " + customers.get(customerId - 1).getName() + "\n\n");
-                    bill.append("Total Bill Amount: ").append(totalBillAmount).append("\n");
-                    JOptionPane.showMessageDialog(mainFrame, bill.toString());
-                }
+                bill.append("</div>"); // End dashed line div
+        
+                bill.append("<b style=\"text-align: center;\">Total Bill Amount:</b> ₹").append(totalBillAmount).append("<br>");
+                bill.append("</body></html>");
+        
+                // Display the bill in a custom dialog box with proper formatting
+                JDialog billDialog = new JDialog(mainFrame, "Bill", Dialog.ModalityType.APPLICATION_MODAL);
+                billDialog.setLayout(new BorderLayout());
+                JLabel billLabel = new JLabel(bill.toString());
+                billDialog.add(billLabel, BorderLayout.CENTER);
+                billDialog.setSize(200, 300);
+                billDialog.setLocationRelativeTo(mainFrame);
+                billDialog.setVisible(true);
         
                 makeSaleFrame.dispose();
             }
         });
+        
     
         makeSaleFrame.add(inputPanel, BorderLayout.CENTER);
         makeSaleFrame.add(sellButton, BorderLayout.SOUTH);
@@ -325,47 +342,85 @@ class MedicalStoreManagementSystemGUI {
     
         makeSaleFrame.setVisible(true);
     }
-    
-    private SaleItem sellProduct(int customerId, int productId, int quantityToSell) {
-       // Customer customerToSell = customers.get(customerId - 1);
-        if (customerId > 0 && customerId <= customers.size()) {
-            Customer customerToSell = customers.get(customerId - 1);
-        } else {
-            JOptionPane.showMessageDialog(mainFrame, "Invalid customer ID!");
-            return null; // or handle the error appropriately
-        }
-        
-        Product productToSell = null;
-        for (Product product : products) {
-            if (product.getId() == productId) {
-                productToSell = product;
-                break;
+    private String getProductName(int productId) {
+        try {
+            String sql = "SELECT name FROM products WHERE id = ?";
+            try (PreparedStatement statement = conn.prepareStatement(sql)) {
+                statement.setInt(1, productId);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        return resultSet.getString("name");
+                    } else {
+                        return "Unknown"; // Return a default value if product not found
+                    }
+                }
             }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            return "Unknown"; // Return a default value if an error occurs
         }
-    
-        if (productToSell == null) {
-            JOptionPane.showMessageDialog(mainFrame, "Product not found!");
-            return null;
-        }
-    
-        if (productToSell.getQuantity() < quantityToSell) {
-            JOptionPane.showMessageDialog(mainFrame, "Insufficient stock for product: " + productToSell.getName());
-            return null;
-        }
-    
-        double totalPrice = productToSell.getPrice() * quantityToSell;
-        productToSell.setQuantity(productToSell.getQuantity() - quantityToSell);
-    
-        return new SaleItem(productToSell, quantityToSell, totalPrice);
     }
     
+    private SaleItem sellProduct(int customerId, int productId, int quantityToSell) {
+        try {
+            // Check if the customer exists
+            String customerQuery = "SELECT * FROM Customer WHERE id = ?";
+            try (PreparedStatement customerStatement = conn.prepareStatement(customerQuery)) {
+                customerStatement.setInt(1, customerId);
+                try (ResultSet customerResult = customerStatement.executeQuery()) {
+                    if (!customerResult.next()) {
+                        JOptionPane.showMessageDialog(mainFrame, "Invalid customer ID!");
+                        return null;
+                    }
+                }
+            }
+
+            // Check if the product exists and has sufficient stock
+            String productQuery = "SELECT * FROM Products WHERE id = ?";
+            try (PreparedStatement productStatement = conn.prepareStatement(productQuery)) {
+                productStatement.setInt(1, productId);
+                try (ResultSet productResult = productStatement.executeQuery()) {
+                    if (!productResult.next()) {
+                        JOptionPane.showMessageDialog(mainFrame, "Product not found!");
+                        return null;
+                    }
+                    int currentQuantity = productResult.getInt("quantity");
+                    if (currentQuantity < quantityToSell) {
+                        JOptionPane.showMessageDialog(mainFrame, "Insufficient stock for product!");
+                        return null;
+                    }
+
+                    // Update product quantity
+                    int newQuantity = currentQuantity - quantityToSell;
+                    String updateQuery = "UPDATE Products SET quantity = ? WHERE id = ?";
+                    try (PreparedStatement updateStatement = conn.prepareStatement(updateQuery)) {
+                        updateStatement.setInt(1, newQuantity);
+                        updateStatement.setInt(2, productId);
+                        updateStatement.executeUpdate();
+                    }
+
+                    // Calculate total price
+                    double price = productResult.getDouble("price");
+                    double totalPrice = price * quantityToSell;
+
+                    // Return SaleItem
+                    return new SaleItem(productId, quantityToSell, totalPrice);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(mainFrame, "Failed to sell product!");
+            return null;
+        }
+    }
+
     private class SaleItem {
-        Product product;
+        int productId;
         int quantity;
         double totalPrice;
-    
-        SaleItem(Product product, int quantity, double totalPrice) {
-            this.product = product;
+
+        SaleItem(int productId, int quantity, double totalPrice) {
+            this.productId = productId;
             this.quantity = quantity;
             this.totalPrice = totalPrice;
         }
