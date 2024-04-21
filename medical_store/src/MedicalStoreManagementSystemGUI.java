@@ -1,10 +1,15 @@
 package medical_store.src;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,7 +18,7 @@ class MedicalStoreManagementSystemGUI {
     private JPanel controlPanel;
     private JLabel headerLabel;
     private JTextArea displayArea;
-
+    private Connection conn; 
     private List<Product> products;
     private List<Customer> customers;
     private List<Sale> sales;
@@ -22,16 +27,16 @@ class MedicalStoreManagementSystemGUI {
     private int saleCounter = 1;
     private static final int LOW_STOCK_THRESHOLD = 10;
 
-    public MedicalStoreManagementSystemGUI() {
+    public MedicalStoreManagementSystemGUI() throws ClassNotFoundException {
         products = new ArrayList<>();
         customers = new ArrayList<>();
         sales = new ArrayList<>();
         prepareGUI();
         System.out.println("Testing database connection...");
-        Connection conn = DatabaseConnection.getConnection();
+        conn = DatabaseConnection.getConnection();
         // You can use 'conn' for executing queries or other database operations
         // Don't forget to close the connection when done
-        DatabaseConnection.closeConnection(conn);
+        // DatabaseConnection.closeConnection(conn);
     }
 
     private void showLoginFrame() {
@@ -76,7 +81,7 @@ class MedicalStoreManagementSystemGUI {
 
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ClassNotFoundException {
         MedicalStoreManagementSystemGUI systemGUI = new MedicalStoreManagementSystemGUI();
         systemGUI.showLoginFrame();
     }
@@ -176,7 +181,7 @@ class MedicalStoreManagementSystemGUI {
         JTextField priceField = new JTextField(10);
         JLabel quantityLabel = new JLabel("Quantity:");
         JTextField quantityField = new JTextField(10);
-        JLabel expiryLabel = new JLabel("Expiry Date:");
+        JLabel expiryLabel = new JLabel("Expiry Date: (YYYY-MM-DD)");
         JTextField expiryField = new JTextField(20);
 
         JButton addButton = new JButton("Add");
@@ -367,23 +372,48 @@ class MedicalStoreManagementSystemGUI {
     
 
     private void displayProducts() {
-        StringBuilder productsInfo = new StringBuilder();
-        if (products.isEmpty()) {
-            productsInfo.append("No products available.");
-        } else {
-            productsInfo.append("Products:\n");
-            for (Product product : products) {
-                productsInfo.append("ID: ").append(product.getId()).append(", ")
-                           .append("Name: ").append(product.getName()).append(", ")
-                           .append("Price: ").append(product.getPrice()).append(", ")
-                           .append("Quantity: ").append(product.getQuantity()).append(", ")
-                           .append("Expiry Date: ").append(product.getExpiryDate()).append("\n");
+        try {
+            String sql = "SELECT * FROM products";
+            try (PreparedStatement statement = conn.prepareStatement(sql);
+                 ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.isBeforeFirst()) {
+                    JOptionPane.showMessageDialog(mainFrame, "No products available.");
+                } else {
+                    JTable table = new JTable(buildTableModel(resultSet));
+                    JScrollPane scrollPane = new JScrollPane(table);
+                    JOptionPane.showMessageDialog(mainFrame, scrollPane, "Available Products", JOptionPane.PLAIN_MESSAGE);
+                }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(mainFrame, "Failed to retrieve products from the database.");
         }
-        JOptionPane.showMessageDialog(mainFrame, productsInfo.toString());
-        ((JDialog) SwingUtilities.getWindowAncestor(mainFrame)).setLocationRelativeTo(null);
     }
 
+    private DefaultTableModel buildTableModel(ResultSet resultSet) throws SQLException {
+        // Get column names
+        java.sql.ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        String[] columnNames = new String[columnCount];
+        for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+            columnNames[columnIndex - 1] = metaData.getColumnName(columnIndex);
+        }
+
+        // Get data
+        List<Object[]> rows = new ArrayList<>();
+        while (resultSet.next()) {
+            Object[] rowData = new Object[columnCount];
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                rowData[columnIndex - 1] = resultSet.getObject(columnIndex);
+            }
+            rows.add(rowData);
+        }
+
+        Object[][] data = new Object[rows.size()][];
+        rows.toArray(data);
+
+        return new DefaultTableModel(data, columnNames);
+    }
     private void displayCustomers() {
         // Create a StringBuilder to hold the information of all customers
         StringBuilder customerInfo = new StringBuilder();
@@ -485,9 +515,27 @@ class MedicalStoreManagementSystemGUI {
     
 
     private void addProduct(String name, double price, int quantity, String expiryDate) {
-        Product newProduct = new Product(productCounter++, name, price, quantity, expiryDate);
-        products.add(newProduct);
-        JOptionPane.showMessageDialog(mainFrame, "Product added successfully!");
+        try {
+            String sql = "INSERT INTO products (name, price, quantity, expiryDate) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement statement = conn.prepareStatement(sql)) {
+                statement.setString(1, name);
+                statement.setDouble(2, price);
+                statement.setInt(3, quantity);
+                statement.setString(4, expiryDate);
+
+                int rowsInserted = statement.executeUpdate();
+                if (rowsInserted > 0) {
+                    Product newProduct = new Product(productCounter++, name, price, quantity, expiryDate);
+                    products.add(newProduct);
+                    JOptionPane.showMessageDialog(mainFrame, "Product added successfully!");
+                } else {
+                    JOptionPane.showMessageDialog(mainFrame, "Failed to add product!");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(mainFrame, "Failed to add product!");
+        }
     }
 
     private void addCustomer(String name, String address, String phone) {
