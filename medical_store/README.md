@@ -16,3 +16,16 @@ Meanwhile, the compiled output files will be generated in the `bin` folder by de
 ## Dependency Management
 
 The `JAVA PROJECTS` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-dependency#manage-dependencies).
+
+
+## How to Run 
+To run a program using the command line interface, you need to 
+
+open src folder in terminal and follow this steps:
+1) Open project in Vs code
+2) Open MedicalStoreManagementSystemGUI.java file
+3) Search main function in code
+4) Vscode will give two option above the main  function one is "Run 'MedicalStoreManagement another is "debug"
+5) Click on Run 
+6) Username : admin Password: admin123
+
