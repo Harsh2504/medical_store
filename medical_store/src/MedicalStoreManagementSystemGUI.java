@@ -548,18 +548,35 @@ class MedicalStoreManagementSystemGUI {
         // Display a success message
         JOptionPane.showMessageDialog(mainFrame, "Customer added successfully!");
     }
-
-    private void purchaseProduct(int productId, int quantityToAdd) {
-        // Implement logic to purchase product
-        // This method will handle the process of purchasing a product and updating its quantity
-        for (Product product : products) {
-            if (product.getId() == productId) {
-                product.setQuantity(product.getQuantity() + quantityToAdd);
-                JOptionPane.showMessageDialog(mainFrame, "Product purchased successfully!");
-                return;
+ private void purchaseProduct(int productId, int quantityToAdd) {
+        try {
+            String sql = "SELECT * FROM products WHERE id = ?";
+            try (PreparedStatement statement = conn.prepareStatement(sql)) {
+                statement.setInt(1, productId);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        int currentQuantity = resultSet.getInt("quantity");
+                        int newQuantity = currentQuantity + quantityToAdd;
+                        if (newQuantity >= 0) {
+                            sql = "UPDATE products SET quantity = ? WHERE id = ?";
+                            try (PreparedStatement updateStatement = conn.prepareStatement(sql)) {
+                                updateStatement.setInt(1, newQuantity);
+                                updateStatement.setInt(2, productId);
+                                updateStatement.executeUpdate();
+                                JOptionPane.showMessageDialog(mainFrame, "Product purchased successfully!");
+                            }
+                        } else {
+                            JOptionPane.showMessageDialog(mainFrame, "Not enough quantity available!");
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(mainFrame, "Product not found!");
+                    }
+                }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(mainFrame, "Failed to purchase product!");
         }
-        JOptionPane.showMessageDialog(mainFrame, "Product not found!");
     }
 }
 
