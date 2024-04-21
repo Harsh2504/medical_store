@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Vector;
 
 class MedicalStoreManagementSystemGUI {
     private JFrame mainFrame;
@@ -415,29 +416,46 @@ class MedicalStoreManagementSystemGUI {
         return new DefaultTableModel(data, columnNames);
     }
     private void displayCustomers() {
-        // Create a StringBuilder to hold the information of all customers
-        StringBuilder customerInfo = new StringBuilder();
-    
-        // Check if there are any customers
-        if (customers.isEmpty()) {
-            JOptionPane.showMessageDialog(mainFrame, "No customers", "Customers", JOptionPane.INFORMATION_MESSAGE);
-            return; // Exit the method if there are no customers
+        try {
+            String sql = "SELECT * FROM Customer";
+            try (PreparedStatement statement = conn.prepareStatement(sql);
+                 ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.isBeforeFirst()) {
+                    JOptionPane.showMessageDialog(mainFrame, "No customers", "Customers", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JTable table = new JTable(buildCustomerTableModel(resultSet));
+                    JScrollPane scrollPane = new JScrollPane(table);
+                    JOptionPane.showMessageDialog(mainFrame, scrollPane, "Customers", JOptionPane.PLAIN_MESSAGE);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(mainFrame, "Failed to retrieve customers from the database.", "Error", JOptionPane.ERROR_MESSAGE);
         }
-    
-        // Iterate through the list of customers
-        for (Customer customer : customers) {
-            // Append the details of each customer to the StringBuilder
-            customerInfo.append("Customer ID: ").append(customer.getId()).append("\n");
-            customerInfo.append("Name: ").append(customer.getName()).append("\n");
-            customerInfo.append("Address: ").append(customer.getAddress()).append("\n");
-            customerInfo.append("Phone: ").append(customer.getPhone()).append("\n\n");
-        }
-    
-        // Display the customer information in a dialog box
-        JOptionPane.showMessageDialog(mainFrame, customerInfo.toString(), "Customers", JOptionPane.PLAIN_MESSAGE);
-        ((JDialog) SwingUtilities.getWindowAncestor(mainFrame)).setLocationRelativeTo(null);
     }
-    
+
+    private DefaultTableModel buildCustomerTableModel(ResultSet resultSet) throws SQLException {
+        java.sql.ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+
+        // Create vector to hold column names
+        Vector<String> columnNames = new Vector<>();
+        for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+            columnNames.add(metaData.getColumnName(columnIndex));
+        }
+
+        // Create vector to hold data rows
+        Vector<Vector<Object>> data = new Vector<>();
+        while (resultSet.next()) {
+            Vector<Object> row = new Vector<>();
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                row.add(resultSet.getObject(columnIndex));
+            }
+            data.add(row);
+        }
+
+        return new DefaultTableModel(data, columnNames);
+    }
     
 
     private void purchaseProductDialog() {
@@ -539,14 +557,25 @@ class MedicalStoreManagementSystemGUI {
     }
 
     private void addCustomer(String name, String address, String phone) {
-        // Create a new Customer object with the provided details
-        Customer newCustomer = new Customer(customerCounter++, name, address, phone);
-        
-        // Add the new customer to the list of customers
-        customers.add(newCustomer);
-        
-        // Display a success message
-        JOptionPane.showMessageDialog(mainFrame, "Customer added successfully!");
+        try {
+            // Prepare SQL statement for inserting a new customer
+            String sql = "INSERT INTO Customer (name, address, phone) VALUES (?, ?, ?)";
+            try (PreparedStatement statement = conn.prepareStatement(sql)) {
+                // Set values for parameters in the prepared statement
+                statement.setString(1, name);
+                statement.setString(2, address);
+                statement.setString(3, phone);
+
+                // Execute the SQL statement to insert the new customer
+                statement.executeUpdate();
+
+                // Display a success message
+                JOptionPane.showMessageDialog(mainFrame, "Customer added successfully!");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(mainFrame, "Failed to add customer!");
+        }
     }
  private void purchaseProduct(int productId, int quantityToAdd) {
         try {
