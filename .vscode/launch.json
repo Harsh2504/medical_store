@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "MedicalStoreManagementSystemGUI",
+      "request": "launch",
+      "mainClass": "medical_store.src.MedicalStoreManagementSystemGUI",
+      "projectName": "Piyush project_a2eb02e1"
+    },
+    {
+      "type": "java",
+      "name": "DatabaseConnection",
+      "request": "launch",
+      "mainClass": "medical_store.src.DatabaseConnection",
+      "projectName": "Piyush project_a2eb02e1"
+    },
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "externalConsole": true,
+      "cwd": "c:/Users/HARSH/OneDrive/Desktop/Piyush project",
+      "program": "c:/Users/HARSH/OneDrive/Desktop/Piyush project/build/Debug/outDebug",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}
